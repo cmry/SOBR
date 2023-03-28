@@ -79,6 +79,7 @@ group_authors_pipeline = [
 ]
 
 db.labelled_authors_temp.aggregate(group_authors_pipeline, allowDiskUse=True)
+db.labelled_authors_temp.drop()
 
     
 

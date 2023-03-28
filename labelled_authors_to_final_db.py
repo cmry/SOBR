@@ -15,6 +15,8 @@ db_month_name = 'july2021_all'
 
 personality_subreddits = ['r/entj', 'r/enfp', 'r/enfj', 'r/intp', 'r/esfj', 'r/esfp', 'r/infp', 'r/intj', 'r/infj', 'r/isfj', 'r/entp', 'r/estp', 'r/estj', 'r/istj', 'r/isfp', 'r/istp']
 
+# TODO: adapt the script to include the rest of the attributes
+
 pipeline = [ 
     {'$lookup': {'from': db_month_name, 'localField': 'author_id', 'foreignField': 'author_fullname', 'as': 'all_author_posts'}},
     {'$unwind': {'path': '$all_author_posts', 'preserveNullAndEmptyArrays': True}},
