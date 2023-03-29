@@ -33,14 +33,23 @@ regex_dic = {'E': '(^|\s)[Ee][SsNn][TtFf][PpJj](\s|$)',
 for personality in personalities.keys():
 
     main_db_pipeline = [
+        # Match the posts from the personality subreddits
         {'$match': {'subreddit_name_prefixed': {'$in': subreddits}}},
+
+        # Match the posts with the personality flair 
         {'$match': {'author_flair_text': {'$regex': regex_dic[personality]}}},
+
+        # Project the fields we need
         {'$project': {'author_fullname': 1, 'author_flair_text': 1, 'subreddit_name_prefixed': 1, 'post_id': '$id', '_id': 0}}, 
+
+        # Group the posts by author
         {'$group': {'_id': '$author_fullname', personalities[personality]: {'$addToSet': {'post_id': '$post_id', 'flair': '$author_flair_text', 'subreddit_with_prefix': '$subreddit_name_prefixed', 'database_month': database_month}}}},
+
+        # Format the output
         {'$addFields': {'personality': {personalities[personality]: '$' + personalities[personality]}}},
         {'$addFields': {'labels': {'personality': '$personality'}}},
         {'$project': {'author_id': '$_id', 'labels': 1, '_id': 0}},
-        {'$out': 'labelled_authors_temp'}
+        {'$out': 'personality_temp'}
     ]
 
     db.july2021_all.aggregate(main_db_pipeline, allowDiskUse=True)
