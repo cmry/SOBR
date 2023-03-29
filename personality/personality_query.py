@@ -1,5 +1,7 @@
 from pymongo import MongoClient
 from bson.json_util import dumps, loads
+import time
+import datetime
 
 # Connect to the MongoDB, change the connection string per your MongoDB environment
 client = MongoClient("localhost", 27010)             
@@ -30,13 +32,15 @@ regex_dic = {'E': '(^|\s)[Ee][SsNn][TtFf][PpJj](\s|$)',
              'P': '(^|\s)[EeIi][SsNn][TtFf][Pp](\s|$)'
              }
 
+t0 = time.time()
+
 for personality in personalities.keys():
 
     main_db_pipeline = [
         # Match the posts from the personality subreddits
         {'$match': {'subreddit_name_prefixed': {'$in': subreddits}}},
 
-        # Match the posts with the personality flair 
+        # Match the posts by regex on flair 
         {'$match': {'author_flair_text': {'$regex': regex_dic[personality]}}},
 
         # Project the fields we need
@@ -49,12 +53,15 @@ for personality in personalities.keys():
         {'$addFields': {'personality': {personalities[personality]: '$' + personalities[personality]}}},
         {'$addFields': {'labels': {'personality': '$personality'}}},
         {'$project': {'author_id': '$_id', 'labels': 1, '_id': 0}},
+
+        # Output to a temporary collection
         {'$out': 'personality_temp'}
     ]
 
     db.july2021_all.aggregate(main_db_pipeline, allowDiskUse=True)
-    
-group_authors_pipeline = [
+
+temp_db_pipeline = [
+    # Expand the arrays to individual documents
     {'$unwind': {'path': '$labels.personality.extrovert', 'preserveNullAndEmptyArrays': True}},
     {'$unwind': {'path': '$labels.personality.introvert', 'preserveNullAndEmptyArrays': True}},
     {'$unwind': {'path': '$labels.personality.sensing', 'preserveNullAndEmptyArrays': True}},
@@ -63,6 +70,8 @@ group_authors_pipeline = [
     {'$unwind': {'path': '$labels.personality.feeling', 'preserveNullAndEmptyArrays': True}},
     {'$unwind': {'path': '$labels.personality.judging', 'preserveNullAndEmptyArrays': True}},
     {'$unwind': {'path': '$labels.personality.perceiving', 'preserveNullAndEmptyArrays': True}},
+
+    # Regroup the documents by author to form one document per author
     {'$group': {'_id': '$author_id',
                 'extrovert': {'$push': '$labels.personality.extrovert'},
                 'introvert': {'$push': '$labels.personality.introvert'},
@@ -73,6 +82,8 @@ group_authors_pipeline = [
                 'judging': {'$push': '$labels.personality.judging'},
                 'perceiving': {'$push': '$labels.personality.perceiving'},
                 }},
+
+    # Format the output
     {'$addFields': {'personality': {'extrovert': '$extrovert',
                                     'introvert': '$introvert',
                                     'sensing': '$sensing',
@@ -84,12 +95,19 @@ group_authors_pipeline = [
                                     }}},
     {'$addFields': {'labels': {'personality': '$personality'}}},
     {'$project':{'author_id': '$_id', 'labels': 1, '_id': 0}},
-    {'$out': 'labelled_authors'}
+
+    # Output to the labelled authors collection
+    {'$merge': {'into': 'labelled_authors_temp',
+                'on': 'author_id',
+                'whenMatched': 'merge',
+                'whenNotMatched': 'insert'}},
 ]
 
-db.labelled_authors_temp.aggregate(group_authors_pipeline, allowDiskUse=True)
-db.labelled_authors_temp.drop()
+db.personality_temp.aggregate(temp_db_pipeline, allowDiskUse=True)
+db.personality_temp.drop()
 
+elapsed = str(datetime.timedelta(seconds=int(round(time.time() - t0))))
+print(f'Query took: {elapsed}')
     
 
 

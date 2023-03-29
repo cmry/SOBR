@@ -13,18 +13,18 @@ db.authenticate("sergey", "topsecretpasswordforsergeysmongo")
 database_month = '07-2021'
 
 regex_dic = {
-    'Germany': 'Germany|DE|Deutschland|Deutsch|Deutsche|Bavaria|North Rhine-Westphalia|Berlin|Lower Saxony|Baden-W\u00fcrttemberg|:flag[_-]de:',
-    'United Kingdom': 'United Kingdom|UK|England|British|Scotland|Wales|Northern Ireland|Great Britain|Ulster|Munster|London|:flag[_-]gb[_-]eng:',
-    'USA': 'USA|US|United States|American|Americans|America|United States of America|California|NYC|:flag[_-]us:',
+    'Germany': 'Germany|DE|Deutschland|Deutsch|Deutsche|Bavaria|North Rhine-Westphalia|Berlin|Lower Saxony|Baden-W\u00fcrttemberg|Franconia|:flag[_-]de:',
+    'United Kingdom': 'United Kingdom|UK|England|British|Scotland|Wales|Northern Ireland|Great Britain|Ulster|Munster|London|British Isles|:flag[_-]gb[_-]eng:',
+    'USA': 'USA|US|United States|American|Americans|America|United States of America|California|NYC|Texas|:flag[_-]us:',
     'Turkey': 'Turkey|TR|Turkish|Türkiye|T\u00fcrkiye|:flag[_-]tr:',
     'Finland': 'Finland|FI|Finnish|Suomi|:flag[_-]fi:',
     'Sweden': 'Sweden|SE|Swedish|Sverige|:flag[_-]se:',
-    'Italy': 'Italy|IT|Italian|Italia|Emilia-Romagna|Lazio|Lombardy|Veneto|Abruzzo|Sardinia|:flag[_-]it:',
+    'Italy': 'Italy|IT|Italian|Italia|Emilia-Romagna|Lazio|Lombardy|Veneto|Abruzzo|Sardinia|Sicily|:flag[_-]it:',
     'France': 'France|FR|French|Français|Française|:flag[_-]fr:',
-    'Greece': 'Greece|GR|Greek|Ελλάδα|Hellas|:flag[_-]gr:',
+    'Greece': 'Greece|GR|Greek|Ελλάδα|Hellas|Pontus|:flag[_-]gr:',
     'The Netherlands': 'The Netherlands|NL|Dutch|Netherlands|Nederland|Limburg|Amsterdam|:flag[_-]nl:',
     'Poland': 'Poland|PL|Polish|Polska|Warsaw|:flag[_-]pl:',
-    'Denmark': 'Denmark|DK|Danish|Danmark|Zealand|Copenhagen|:flag[_-]dk:',
+    'Denmark': 'Denmark|DK|Danish|Danmark|Zealand|Copenhagen|Faroe Islands|:flag[_-]dk:',
     'Romania': 'Romania|RO|Romanian|Rumänien|Bucharest|:flag[_-]ro:',
     'Serbia': 'Serbia|RS|Serbian|Србија|:flag[_-]rs:',
     'Ireland': 'Ireland|IE|Irish|Éire|Leinster|:flag[_-]ie:',
@@ -35,7 +35,7 @@ regex_dic = {
     'Lithuania': 'Lithuania|LT|Lithuanian|Lietuva|:flag[_-]lt:',
     'Austria': 'Austria|AT|Austrian|Österreich|\u00d6sterreich|:flag[_-]at:',
     'Estonia': 'Estonia|EE|Estonian|Eesti|:flag[_-]ee:',
-    'Belgium': 'Belgium|BE|Belgian|België|Flanders|Brussels|:flag[_-]be:',
+    'Belgium': 'Belgium|BE|Belgian|België|Flanders|Brussels|Ghent|:flag[_-]be:',
     'Spain': 'Spain|ES|Spanish|España|:flag[_-]es:',
     'Ukraine': 'Ukraine|UA|Ukrainian|Україна|Kyiv|:flag[_-]ua:',
     'Czech Republic': 'Czech Republic|CZ|Czech|Česká|Czechia|:flag[_-]cz:',
@@ -73,13 +73,17 @@ regex_dic = {
     'Philippines': 'Philippines|PH|Filipino|Pilipinas|:flag[_-]ph:',
     'Liechtenstein': 'Liechtenstein|LI|Liechtenstein|Liechtenstein|:flag[_-]li:',
     'Armenia': 'Armenia|AM|Armenian|Հայաստան|:flag[_-]am:',
+    'Taiwan': 'Taiwan|TW|Taiwanese|台灣|:flag[_-]tw:',
+    'Chili': 'Chili|CL|Chilean|Chile|:flag[_-]cl:',
     'India': 'India|IN|Indian|भारत|:flag[_-]in:',
-    'China': 'China|CN|Chinese|中国|:flag[_-]cn:',
+    'Iran': 'Iran|IR|Iranian|ایران|:flag[_-]ir:',
+    'Uruguay': 'Uruguay|UY|Uruguayan|Uruguay|:flag[_-]uy:',
+    'Syria': 'Syria|SY|Syrian|سوريا|:flag[_-]sy:',
 }
 
 t0 = time.time()
 
-pipeline_1 = [
+main_db_pipeline = [
     # match only the subreddits we want
     {'$match': {'subreddit_name_prefixed': {'$in': subreddits}}},
 
@@ -122,10 +126,10 @@ pipeline_1 = [
     {'$out': 'nationality_temp'}
 ]
 
-db.july2021_all.aggregate(pipeline_1)
+db.july2021_all.aggregate(main_db_pipeline)
 
 for country in regex_dic.keys():
-    pipeline_2 = [
+    temp_db_pipeline = [
         # Match only the documents with the current country
         {'$match': {'label': country}},
         
@@ -136,10 +140,13 @@ for country in regex_dic.keys():
         {'$project': {'author_id': 1, 'labels': 1, '_id': 0}},
 
         # Save the result to the labelled authors collection
-        {'$out': 'labelled_authors'}
+        {'$merge': {'into': 'labelled_authors_temp',
+                    'on': 'author_id',
+                    'whenMatched': 'merge',
+                    'whenNotMatched': 'insert'}},
     ]
 
-    db.nationality_temp.aggregate(pipeline_2)
+    db.nationality_temp.aggregate(temp_db_pipeline)
 
 
 db.nationality_temp.drop()
