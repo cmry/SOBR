@@ -27,11 +27,9 @@ def query_mogoDB(patterns, regex_dic, posts_dic):
         ]        
         
         results = list(db.july2021_all.aggregate(query))
-        
         posts_dic[p] = results
         
     return posts_dic
-
 
 def assign_PolPosition(patterns, posts_dic):
     posts = []
@@ -59,20 +57,17 @@ def group_by_author(posts_list, database_month):
             
             if post['political_leaning'] not in authors_dic[post['_id']]['labels']['political_leaning'].keys():
                 authors_dic[post['author_fullname']]['labels']['political_leaning'][post['political_leaning']] = [post_info]
-
     return authors_dic
             
-
-def export_authors(authors_dic, path, database_month):
+def export_authors(authors_dic):
     authors_list = []
     for author in authors_dic.keys():
         authors_list.append(authors_dic[author])
-    
-    with open(path + 'intermediateFile_PoliticalLeaning{}.json'.format(database_month), 'w') as f:
-            f.write(dumps(authors_list, indent=2))
+    # insert list of objects into collection
+    result = db.labelled_authors.insert_many(authors_list)
+    print('Inserted', len(result.inserted_ids))
         
 
-path_intermediate = 'political_leaning/'
 database_month = '07-2021'
 patterns = ['right', 'left', 'center']
 subreddits = ['r/PoliticalCompassMemes', 'r/PoliticalCompass', 'r/PCM_University']
@@ -93,5 +88,5 @@ posts = assign_PolPosition(patterns, posts_dic)
 
 authors_dic = group_by_author(posts, database_month)
 
-export_authors(authors_dic, path_intermediate, database_month)
+export_authors(authors_dic)
 
