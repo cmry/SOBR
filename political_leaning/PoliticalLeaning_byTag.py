@@ -74,15 +74,13 @@ def export_authors(authors_dic, path, database_month):
 
 path_intermediate = 'political_leaning/'
 database_month = '07-2021'
-
 patterns = ['right', 'left', 'center']
+subreddits = ['r/PoliticalCompassMemes', 'r/PoliticalCompass', 'r/PCM_University']
 
 posts_dic = {'right': None,
              'left': None,
              'center': None
             }
-
-subreddits = ['r/PoliticalCompassMemes', 'r/PoliticalCompass', 'r/PCM_University']
 
 regex_dic = {'right': '(^|\s)(LibRight|Right|AuthRight)(\s|$)',
              'left': '(^|\s)(LibLeft|Left|AuthLeft)(\s|$)',
@@ -97,4 +95,3 @@ authors_dic = group_by_author(posts, database_month)
 
 export_authors(authors_dic, path_intermediate, database_month)
 
-#db.political_leaning_07_2021.insert(authors_dic)
