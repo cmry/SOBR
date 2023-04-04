@@ -98,13 +98,16 @@ def group_by_author(posts_list, database_month):
     return authors_dic
             
 
-def export_authors(authors_dic, path, database_month):
+def export_authors(authors_dic):
     authors_list = []
     for author in authors_dic.keys():
         authors_list.append(authors_dic[author])
     
-    with open(path + 'intermediateFile_GenderAge{}.json'.format(database_month), 'w') as f:
-            f.write(dumps(authors_list, indent=2))
+    # insert list of objects into collection
+    result = db.labelled_authors.insert_many(authors_list)
+    # print number of inserted documents and their IDs
+    print('Inserted ', len(result.inserted_ids))
+
         
         
 database_month = '07-2021'
@@ -137,4 +140,4 @@ posts = assign_GenderAge(patterns, posts_dic, regex_dic, attribute_dic, db_year)
 
 authors_dic = group_by_author(posts, database_month)
 
-export_authors(authors_dic, path_intermediate, database_month)
+export_authors(authors_dic)
