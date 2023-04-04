@@ -72,7 +72,7 @@ def export_authors(authors_dic, path, database_month):
             f.write(dumps(authors_list, indent=2))
         
 
-path_intermediate = 'political_leaning/intermediate_files/'
+path_intermediate = 'political_leaning/'
 database_month = '07-2021'
 
 patterns = ['right', 'left', 'center']
