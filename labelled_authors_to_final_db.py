@@ -7,9 +7,10 @@ from pymongo import MongoClient
 from bson.json_util import dumps, loads
 
 # Connect to the MongoDB, change the connection string pmongodb accumulate from several documenter your MongoDB environment
-client = MongoClient("localhost", 27010)             
+#client = MongoClient("localhost", 27010)             
+client = MongoClient('mongodb://sergey:topsecretpasswordforsergeysmongo@localhost:27010/research?authSource=research')             
 db = client.research
-db.authenticate("sergey", "topsecretpasswordforsergeysmongo")
+#db.authenticate("sergey", "topsecretpasswordforsergeysmongo")
 
 db_month_name = 'july2021_all'
 
