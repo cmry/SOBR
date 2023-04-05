@@ -5,9 +5,10 @@ import time
 import datetime
 
 # Connect to the MongoDB, change the connection string per your MongoDB environment
-client = MongoClient("localhost", 27010)             
+#client = MongoClient("localhost", 27010)             
+client = MongoClient('mongodb://sergey:topsecretpasswordforsergeysmongo@localhost:27010/research?authSource=research')             
 db = client.research
-db.authenticate("marilu", "topsecretpasswordformarilusmongo")
+#db.authenticate("marilu", "topsecretpasswordformarilusmongo")
 
 def query_mogoDB(patterns, regex_dic, posts_dic):
     '''
@@ -64,7 +65,7 @@ def export_authors(authors_dic):
     for author in authors_dic.keys():
         authors_list.append(authors_dic[author])
     # insert list of objects into collection
-    result = db.labelled_authors.insert_many(authors_list)
+    result = db.labelled_authors_intermediate.insert_many(authors_list)
     print('Inserted', len(result.inserted_ids))
         
 

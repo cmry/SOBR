@@ -34,7 +34,7 @@ new_authors = labelled_authors_intermediate_ids.difference(authors_to_update)
 # Update authors in the labelled_authors collection with new labels and posts
 updated_documents = []
 
-for author_id in tqdm(authors_to_update, desc="Updating authors" ):
+for author_id in tqdm(authors_to_update, desc="Updating authors"):
     
     old_data = list(db.labelled_authors.find({'author_id': author_id}))
     assert len(old_data) == 1, f"There should be only one author with id {author_id}"
@@ -53,13 +53,13 @@ for author_id in tqdm(authors_to_update, desc="Updating authors" ):
 # Replace the old documents with the updated ones
 try:
     deletion_result = db.labelled_authors.delete_many({'author_id': {'$in': list(authors_to_update)}})
-    assert deletion_result.deleted_count == len(authors_to_update)
+    assert deletion_result.deleted_count == len(authors_to_update), f"Deleted {deletion_result.deleted_count} documents, but there were {len(authors_to_update)} documents to delete"
 except TypeError:
     pass # There are no authors to update
 
 try:
     update_result = db.labelled_authors.insert_many(updated_documents)
-    assert len(update_result.inserted_ids) == len(authors_to_update) 
+    assert len(update_result.inserted_ids) == len(authors_to_update), f"Inserted {len(update_result.inserted_ids)} documents, but there were {len(authors_to_update)} documents to insert"
 except TypeError:
     pass # There are no authors to update
 
@@ -67,7 +67,7 @@ except TypeError:
 try:
     new_documents = list(db.labelled_authors_intermediate.find({'author_id': {'$in': list(new_authors)}}))
     insertion_result = db.labelled_authors.insert_many(new_documents)
-    assert len(insertion_result.inserted_ids) == len(new_authors)
+    assert len(insertion_result.inserted_ids) == len(new_authors), f"Inserted {len(insertion_result.inserted_ids)} documents, but there were {len(new_authors)} documents to insert"
 except TypeError:
     pass # There are no new authors to insert
 

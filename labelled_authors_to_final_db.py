@@ -1,9 +1,4 @@
 from pymongo import MongoClient
-import json
-import os
-from functools import partial
-from concurrent.futures import ThreadPoolExecutor
-from pymongo import MongoClient
 from bson.json_util import dumps, loads
 
 # Connect to the MongoDB, change the connection string pmongodb accumulate from several documenter your MongoDB environment

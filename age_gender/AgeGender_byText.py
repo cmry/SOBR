@@ -4,11 +4,12 @@ from bson.json_util import dumps, loads
 import re
 from tqdm import tqdm
 
-client = MongoClient("localhost", 27010)
+#client = MongoClient("localhost", 27010)
+client = MongoClient('mongodb://sergey:topsecretpasswordforsergeysmongo@localhost:27010/research?authSource=research')             
 db = client.research
-db.authenticate("marilu", "topsecretpasswordformarilusmongo")
+#db.authenticate("marilu", "topsecretpasswordformarilusmongo")
 
-def query_mogoDB(patterns, regex_dic, posts_dic):
+def query_mongoDB(patterns, regex_dic, posts_dic):
     '''
     A function to query a mongoDB collection selecting only those documents which text attribute contains the text of interest
     patterns: a list with the names of the different patterns (this names are the same of the dictionaries keys)
@@ -23,7 +24,7 @@ def query_mogoDB(patterns, regex_dic, posts_dic):
             {'$match': {'body': {'$regex': regex_dic[p]}}},
         ]        
         
-        results = list(db.july2021_all.find(query))
+        results = list(db.july2021_all.aggregate(query))
         
         posts_dic[p] = results
             
@@ -104,7 +105,7 @@ def export_authors(authors_dic):
         authors_list.append(authors_dic[author])
     
     # insert list of objects into collection
-    result = db.labelled_authors.insert_many(authors_list)
+    result = db.labelled_authors_intermediate.insert_many(authors_list)
     # print number of inserted documents and their IDs
     print('Inserted ', len(result.inserted_ids))
 
@@ -132,7 +133,7 @@ attribute_dic = {'(YYG)': {'g': -1, 'y1': -3, 'y2':-1},
                  'GYY': {'g': -3, 'y1':-2, 'y2': None}
                 }
 
-posts_dic = query_mogoDB(patterns, regex_dic, posts_dic)
+posts_dic = query_mongoDB(patterns, regex_dic, posts_dic)
 
 posts_dic = remove_bots(patterns, posts_dic, bots_names)
 
