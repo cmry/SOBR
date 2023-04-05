@@ -3,10 +3,10 @@ from bson.json_util import dumps, loads
 import time
 import datetime
 
-# Connect to the MongoDB, change the connection string per your MongoDB environment
-client = MongoClient("localhost", 27010)             
+#client = MongoClient("localhost", 27010)             
+client = MongoClient('mongodb://sergey:topsecretpasswordforsergeysmongo@localhost:27010/research?authSource=research')             
 db = client.research
-db.authenticate("sergey", "topsecretpasswordforsergeysmongo")
+#db.authenticate("sergey", "topsecretpasswordforsergeysmongo")
 
 database_month = '07-2021'
 
@@ -34,6 +34,7 @@ regex_dic = {'E': '(^|\s)[Ee][SsNn][TtFf][PpJj](\s|$)',
 
 t0 = time.time()
 
+# Mine the posts from the personality subreddits one personality at a time
 for personality in personalities.keys():
 
     main_db_pipeline = [
@@ -53,13 +54,12 @@ for personality in personalities.keys():
         {'$addFields': {'personality': {personalities[personality]: '$' + personalities[personality]}}},
         {'$addFields': {'labels': {'personality': '$personality'}}},
         {'$project': {'author_id': '$_id', 'labels': 1, '_id': 0}},
-
-        # Output to a temporary collection
-        {'$out': 'personality_temp'}
     ]
 
-    db.july2021_all.aggregate(main_db_pipeline, allowDiskUse=True)
+    results = list(db.july2021_all.aggregate(main_db_pipeline, allowDiskUse=True))
+    db.personality_temp.insert_many(results)
 
+# Group all the posts by author
 temp_db_pipeline = [
     # Expand the arrays to individual documents
     {'$unwind': {'path': '$labels.personality.extrovert', 'preserveNullAndEmptyArrays': True}},
@@ -95,15 +95,62 @@ temp_db_pipeline = [
                                     }}},
     {'$addFields': {'labels': {'personality': '$personality'}}},
     {'$project':{'author_id': '$_id', 'labels': 1, '_id': 0}},
-
-    # Output to the labelled authors collection
-    {'$merge': {'into': 'labelled_authors_temp',
-                'on': 'author_id',
-                'whenMatched': 'merge',
-                'whenNotMatched': 'insert'}},
+    
+    # Exclude the authors that have contradictory labels. For example, introvert and extrovert
+    {'$match': {'$nor': [{'$and': [{'labels.personality.extrovert.0': {'$exists': True}}, {'labels.personality.introvert.0': {'$exists': True}}]},
+                        {'$and': [{'labels.personality.sensing.0': {'$exists': True}}, {'labels.personality.intuitive.0': {'$exists': True}}]},
+                        {'$and': [{'labels.personality.thinking.0': {'$exists': True}}, {'labels.personality.feeling.0': {'$exists': True}}]},
+                        {'$and': [{'labels.personality.judging.0': {'$exists': True}}, {'labels.personality.perceiving.0': {'$exists': True}}]},
+                       ]
+                }
+    },
+    {'$out': 'personality_temp'}
+    
 ]
-
 db.personality_temp.aggregate(temp_db_pipeline, allowDiskUse=True)
+
+# Check that authors don't appear more than once
+duplicate_authors_pipeline = [
+    {'$group': {'_id': '$author_id', 'count': {'$sum': 1}}},
+    {'$match': {'count': {'$gt': 1}}}
+]
+duplicate_authors = list(db.personality_temp.aggregate(duplicate_authors_pipeline, allowDiskUse=True))
+assert len(duplicate_authors) == 0
+
+
+# Check that there are all authors have labels
+check_every_author_has_labels_pipeline = [
+    {'$match': {'$and': [{'labels.personality.extrovert': {'$exists': False}},
+                        {'labels.personality.introvert': {'$exists': False}},
+                        {'labels.personality.sensing': {'$exists': False}},
+                        {'labels.personality.intuitive': {'$exists': False}},
+                        {'labels.personality.thinking': {'$exists': False}},
+                        {'labels.personality.feeling': {'$exists': False}},
+                        {'labels.personality.judging': {'$exists': False}},
+                        {'labels.personality.perceiving': {'$exists': False}},
+                        ]
+                }
+    }
+]
+authors_with_no_labels = list(db.personality_temp.aggregate(check_every_author_has_labels_pipeline, allowDiskUse=True))
+assert len(authors_with_no_labels) == 0
+
+# Check that no author has contradictory labels
+check_contradictory_labels_pipeline = [
+    {'$match': {'$or': [{'$and': [{'labels.personality.extrovert.0': {'$exists': True}}, {'labels.personality.introvert.0': {'$exists': True}}]},
+                        {'$and': [{'labels.personality.sensing.0': {'$exists': True}}, {'labels.personality.intuitive.0': {'$exists': True}}]},
+                        {'$and': [{'labels.personality.thinking.0': {'$exists': True}}, {'labels.personality.feeling.0': {'$exists': True}}]},
+                        {'$and': [{'labels.personality.judging.0': {'$exists': True}}, {'labels.personality.perceiving.0': {'$exists': True}}]},
+                        ] 
+                }
+    }
+]
+contradicting_authors = list(db.personality_temp.aggregate(check_contradictory_labels_pipeline, allowDiskUse=True))
+assert len(contradicting_authors) == 0
+
+authors = list(db.personality_temp.find({}, {'_id': 0}))
+db.labelled_authors_intermediate.insert_many(authors)
+
 db.personality_temp.drop()
 
 elapsed = str(datetime.timedelta(seconds=int(round(time.time() - t0))))

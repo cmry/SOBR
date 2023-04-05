@@ -6,9 +6,10 @@ import datetime
 
 subreddits = ['r/europe', 'r/AskEurope', 'r/EuropeanCulture', 'r/EuropeanFederalists', 'r/Eurosceptics']
 
-client = MongoClient("localhost", 27010)             
+#client = MongoClient("localhost", 27010, username="sergey", password="topsecretpasswordforsergeysmongo")             
+client = MongoClient('mongodb://sergey:topsecretpasswordforsergeysmongo@localhost:27010/research?authSource=research')             
 db = client.research
-db.authenticate("sergey", "topsecretpasswordforsergeysmongo")
+#db.authenticate("sergey", "topsecretpasswordforsergeysmongo")
 
 database_month = '07-2021'
 
@@ -123,7 +124,7 @@ main_db_pipeline = [
     {'$project': {'posts': 1, 'label': 1, 'author_id': '$_id', '_id': 0}},
 
     # Save intermediate results to a temporary collection
-    {'$out': 'nationality_temp'}
+    {'$out': 'nationality_temp_1'}
 ]
 
 db.july2021_all.aggregate(main_db_pipeline)
@@ -138,18 +139,31 @@ for country in regex_dic.keys():
         {'$addFields': {'nationality': {country: '$' + country}}},
         {'$addFields': {'labels': {'nationality': '$nationality'}}},
         {'$project': {'author_id': 1, 'labels': 1, '_id': 0}},
-
-        # Save the result to the labelled authors collection
-        {'$merge': {'into': 'labelled_authors_temp',
-                    'on': 'author_id',
-                    'whenMatched': 'merge',
-                    'whenNotMatched': 'insert'}},
     ]
 
-    db.nationality_temp.aggregate(temp_db_pipeline)
+    results = list(db.nationality_temp_1.aggregate(temp_db_pipeline))
+    db.nationality_temp_2.insert_many(results)
 
+# Check that no authors appear multiple times (this also check that the labels are correct)
+authors_ids = []
+for country in regex_dic.keys():
+    country_field_name = 'labels.nationality.' + country
+    current_author_ids = list(db.nationality_temp_2.find({country_field_name: {'$exists': True}}, {'author_id': 1, '_id': 0}))
+    # get the author ids from the list of dicts
+    current_author_ids = [author['author_id'] for author in current_author_ids]
+    authors_ids.extend(current_author_ids)
+    
+assert len(authors_ids) == len(set(authors_ids))
 
-db.nationality_temp.drop()
+# Check that all authors have a label
+authors_without_labels = list(db.nationality_temp_2.find({'labels.nationality': {'$type': 'object', '$eq': {}}}))
+assert len(authors_without_labels) == 0
+
+authors = list(db.nationality_temp_2.find({}, {'_id': 0}))
+db.labelled_authors_intermediate.insert_many(authors)
+
+db.nationality_temp_1.drop()
+db.nationality_temp_2.drop()
 
 elapsed = str(datetime.timedelta(seconds=int(round(time.time() - t0))))
 print(f'Query took: {elapsed}')
