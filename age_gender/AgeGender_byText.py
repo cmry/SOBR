@@ -67,7 +67,7 @@ def assign_GenderAge(patterns, posts_dic, regex_dic, attribute_dic, db_year, tex
                 continue
             try:
                 post['age'] = match2[attribute_dic[p]['y1']:attribute_dic[p]['y2']]
-                post['birth_year'] = db_year - int(post['age'])
+                post['birth_year'] = str(db_year - int(post['age']))
                 posts.append(post)
             except:
                 continue
@@ -92,9 +92,9 @@ def group_by_author(posts_list, database_month):
                 authors_dic[post['author_fullname']]['labels']['birth_year'][post['birth_year']].append(post_info)
             if post['gender'] in authors_dic[post['author_fullname']]['labels']['gender'].keys():
                 authors_dic[post['author_fullname']]['labels']['gender'][post['gender']].append(post_info)
-            if post['birth_year'] not in authors_dic[post['_id']]['labels']['birth_year'].keys():
+            if post['birth_year'] not in authors_dic[post['author_fullname']]['labels']['birth_year'].keys():
                 authors_dic[post['author_fullname']]['labels']['birth_year'][post['birth_year']] = [post_info]
-            if post['age'] not in authors_dic[post['_id']]['labels']['gender'].keys():
+            if post['age'] not in authors_dic[post['author_fullname']]['labels']['gender'].keys():
                 authors_dic[post['author_fullname']]['labels']['gender'][post['gender']] = [post_info]
     return authors_dic
             
