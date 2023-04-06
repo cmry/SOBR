@@ -56,7 +56,7 @@ def group_by_author(posts_list, database_month):
             if post['political_leaning'] in authors_dic[post['author_fullname']]['labels']['political_leaning'].keys():
                 authors_dic[post['author_fullname']]['labels']['political_leaning'][post['political_leaning']].append(post_info)
             
-            if post['political_leaning'] not in authors_dic[post['_id']]['labels']['political_leaning'].keys():
+            if post['political_leaning'] not in authors_dic[post['author_fullname']]['labels']['political_leaning'].keys():
                 authors_dic[post['author_fullname']]['labels']['political_leaning'][post['political_leaning']] = [post_info]
     return authors_dic
             
