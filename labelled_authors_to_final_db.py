@@ -1,5 +1,8 @@
 from pymongo import MongoClient
 from bson.json_util import dumps, loads
+import datetime
+from tqdm import tqdm
+import time
 
 # Connect to the MongoDB, change the connection string pmongodb accumulate from several documenter your MongoDB environment
 #client = MongoClient("localhost", 27010)             
@@ -9,33 +12,105 @@ db = client.research
 
 db_month_name = 'july2021_all'
 
+personality_attributes = ['extrovert', 'introvert', 'sensing', 'intuitive', 'thinking', 'feeling', 'judging', 'perceiving']
 personality_subreddits = ['r/entj', 'r/enfp', 'r/enfj', 'r/intp', 'r/esfj', 'r/esfp', 'r/infp', 'r/intj', 'r/infj', 'r/isfj', 'r/entp', 'r/estp', 'r/estj', 'r/istj', 'r/isfp', 'r/istp']
-
-# TODO: adapt the script to include the rest of the attributes
+nationality_subreddits = ['r/europe', 'r/AskEurope', 'r/EuropeanCulture', 'r/EuropeanFederalists', 'r/Eurosceptics']
+political_leaning_subreddits = ['r/PoliticalCompassMemes', 'r/PoliticalCompass', 'r/PCM_University']
 
 pipeline = [ 
-    {'$lookup': {'from': db_month_name, 'localField': 'author_id', 'foreignField': 'author_fullname', 'as': 'all_author_posts'}},
-    {'$unwind': {'path': '$all_author_posts', 'preserveNullAndEmptyArrays': True}},
-    {'$project': {'_id': 0,
-                'author_id': 1,
-                'post_id': '$all_author_posts.id',
-                'date_posted': '$all_author_posts.created_utc',
-                'subreddit': '$all_author_posts.subreddit_name_prefixed',
-                'post_body': '$all_author_posts.body',
-                'extrovert': {'$cond': {'if': {'$eq': [{'$size': '$labels.personality.extrovert'}, 0]}, 'then': 0, 'else': 1}},
-                'introvert': {'$cond': {'if': {'$eq': [{'$size': '$labels.personality.introvert'}, 0]}, 'then': 0, 'else': 1}},
-                'sensing': {'$cond': {'if': {'$eq': [{'$size': '$labels.personality.sensing'}, 0]}, 'then': 0, 'else': 1}},
-                'intuitive': {'$cond': {'if': {'$eq': [{'$size': '$labels.personality.intuitive'}, 0]}, 'then': 0, 'else': 1}},
-                'thinking': {'$cond': {'if': {'$eq': [{'$size': '$labels.personality.thinking'}, 0]}, 'then': 0, 'else': 1}},
-                'feeling': {'$cond': {'if': {'$eq': [{'$size': '$labels.personality.feeling'}, 0]}, 'then': 0, 'else': 1}},
-                'judging': {'$cond': {'if': {'$eq': [{'$size': '$labels.personality.judging'}, 0]}, 'then': 0, 'else': 1}},
-                'perceiving': {'$cond': {'if': {'$eq': [{'$size': '$labels.personality.perceiving'}, 0]}, 'then': 0, 'else': 1}},
-                'personality_in_domain': {'$cond': {'if': {'$in': ['$all_author_posts.subreddit_name_prefixed', personality_subreddits]}, 'then': 1, 'else': 0}},
-    }},
+    {'$lookup': {'from': db_month_name, 'localField': 'author_id', 'foreignField': 'author_fullname', 'as': 'post'}},
+    {'$unwind': {'path': '$post', 'preserveNullAndEmptyArrays': True}},
 ]
 
+curser = db.labelled_authors.aggregate(pipeline, allowDiskUse=True)
+entries = []
 
-results = list(db.labelled_authors.aggregate(pipeline, allowDiskUse=True))
+t0 = time.time()
 
-with open('temp.json', 'w') as f:
-    f.write(dumps(results, indent=2))
+for document in tqdm(curser):
+    entry = {}
+    entry['post_id'] = document['post']['id']
+    entry['author_id'] = document['author_id']
+    entry['subreddit'] = document['post']['subreddit_name_prefixed']
+    entry['created_on'] = datetime.datetime.fromtimestamp(document['post']['created_utc']).strftime('%Y-%m-%d %H:%M:%S')
+    entry['post_body'] = document['post']['body']
+    
+    labels = document['labels']
+    
+    if not labels.get('gender'): 
+        entry['male'] = None
+        entry['female'] = None
+        entry['gender_source_post'] = None
+    else:
+        if len(labels['gender'].keys()) > 1: continue # inconsistent label
+        elif labels['gender'].get('male'): male, female = (1, 0)
+        else: male, female = (0, 1)
+
+        entry['male'] = male
+        entry['female'] = female
+        
+        gender = 'male' if male == 1 else 'female'
+        entry['gender_source_post'] = 1 if document['post']['id'] in [post['post_id'] for post in labels['gender'][gender]] else 0
+    
+
+    if not labels.get('birth_year'): 
+        entry['birth_year'] = None 
+        entry['age_source_post'] = None
+    else:
+        if len(labels['birth_year'].keys()) > 1: continue # inconsistent label
+        else: year = list(labels['birth_year'].keys())[0]
+
+        entry['birth_year'] = year
+        
+        entry['age_source_post'] = 1 if document['post']['id'] in [post['post_id'] for post in labels['birth_year'][year]] else 0
+    
+    
+    if not labels.get('nationality'):
+        entry['nationality'] = None
+        entry['nationality_in_domain'] = None
+    else:
+        if len(labels['nationality'].keys()) > 1: continue # inconsistent label
+        else: entry['nationality'] = list(labels['nationality'].keys())[0]
+
+        entry['nationality_in_domain'] = 1 if document['post']['subreddit_name_prefixed'] in nationality_subreddits else 0
+            
+    
+    if not labels.get('political_leaning'):
+        entry['political_leaning'] = None
+        entry['political_leaning_in_domain'] = None
+    else:
+        if len(labels['political_leaning'].keys()) > 1: continue # inconsistent label
+        else: entry['political_leaning'] = list(labels['political_leaning'].keys())[0]
+        
+        entry['political_leaning_in_domain'] = 1 if document['post']['subreddit_name_prefixed'] in political_leaning_subreddits else 0
+    
+    
+    if not labels.get('personality'):
+        for attribute in personality_attributes:
+            key = 'personality_' + attribute
+            entry[key] = None
+        entry['personality_in_domain'] = None
+    else:
+        # inconsistent label checks
+        if len(labels['personality']['extrovert']) > 0 and len(labels['personality']['introvert']) > 0: continue
+        if len(labels['personality']['sensing']) > 0 and len(labels['personality']['intuitive']) > 0: continue
+        if len(labels['personality']['thinking']) > 0 and len(labels['personality']['feeling']) > 0: continue
+        if len(labels['personality']['judging']) > 0 and len(labels['personality']['perceiving']) > 0: continue
+        
+        for attribute in personality_attributes:
+            key = 'personality_' + attribute
+            entry[key] = 1 if len(labels['personality'][attribute]) > 0 else 0
+        
+        entry['personality_in_domain'] = 1 if document['post']['subreddit_name_prefixed'] in personality_subreddits else 0
+    
+    entries.append(entry)    
+            
+db.final_db.insert_many(entries)
+
+elapsed = str(datetime.timedelta(seconds=int(round(time.time() - t0))))
+
+# write elapsed time to file
+with open('elapsed_time.txt', 'w') as f:
+    f.write(elapsed)
+    
+
