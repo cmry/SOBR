@@ -1,6 +1,7 @@
 from pymongo import MongoClient
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 import statistics as stats
 from bson.json_util import dumps, loads
 from time import time
@@ -81,9 +82,33 @@ for attribute in n_posts_per_label.keys():
 percentage_posts_per_label['birth_year'][0] = dict(sorted(percentage_posts_per_label['birth_year'][0].items(),
                                                           key=lambda x:x[1], reverse = True))
 
-# each attribute lists contain percentage of specific labels in the attribute's total posts, 
+# *percentage_posts_per_label* = each attribute lists contain percentage of specific labels in the attribute's total posts, 
 #number of posts of that attribute, percentage occupied by that attribute in the df (NB. personality is 5% in total)
-percentage_posts_per_label
+#percentage_posts_per_label
+
+# plot gender
+
+# plot personalities
+attributes = ('[1]extroverts/introverts[2]', '\n[1]sensors/intuitives[2]', '[1]thinkers/feelers[2]', '\n[1]judgers/perceivers[2]')
+label_counts = {
+  '[1]': np.array([percentage_posts_per_label['personality_D1'][0]['extroversion'], 
+                    percentage_posts_per_label['personality_D2'][0]['sensors'],
+                    percentage_posts_per_label['personality_D3'][0]['thinkers'],
+                    percentage_posts_per_label['personality_D4'][0]['judgers']]),
+  '[2]': np.array([percentage_posts_per_label['personality_D1'][0]['introversion'], 
+                    percentage_posts_per_label['personality_D2'][0]['intuitives'],
+                    percentage_posts_per_label['personality_D3'][0]['feelers'],
+                    percentage_posts_per_label['personality_D4'][0]['perceivers']]),
+}
+width = 0.6  # the width of the bars: can also be len(x) sequence
+fig, ax = plt.subplots()
+bottom = np.zeros(4)
+for label, label_counts in label_counts.items():
+    p = ax.bar(attributes, label_counts, width, label=label, bottom=bottom)
+    bottom += label_counts
+ax.set_title('Proportion of personality labels by Meyers Briggs pair')
+ax.legend()
+plt.show()
 
 # Plot nationalities
 labels = []
