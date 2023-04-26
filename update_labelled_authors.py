@@ -34,7 +34,7 @@ new_authors = labelled_authors_intermediate_ids.difference(authors_to_update)
 # Update authors in the labelled_authors collection with new labels and posts
 updated_documents = []
 
-for author_id in tqdm(authors_to_update, desc="Updating authors"):
+for author_id in tqdm(authors_to_update, total=len(authors_to_update), desc="Updating authors"):
     
     old_data = list(db.labelled_authors.find({'author_id': author_id}))
     assert len(old_data) == 1, f"There should be only one author with id {author_id}"

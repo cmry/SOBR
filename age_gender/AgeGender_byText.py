@@ -1,15 +1,34 @@
+import datetime
+import time
 from pymongo import MongoClient
-import pandas as pd
-from bson.json_util import dumps, loads
 import re
-from tqdm import tqdm
 
-#client = MongoClient("localhost", 27010)
 client = MongoClient('mongodb://sergey:topsecretpasswordforsergeysmongo@localhost:27010/research?authSource=research')             
 db = client.research
-#db.authenticate("marilu", "topsecretpasswordformarilusmongo")
 
-def query_mongoDB(patterns, regex_dic, posts_dic):
+database_month = '07-2021'
+db_year = 2021
+path_intermediate = 'age_gender/'
+bots_names = ['[deleted]', 'AutoModerator', 'R_Amods', 'Judgement_Bot_AITA', 'transcribot']
+
+patterns = ['(YYG)', '(GYY)', 'YYG', 'GYY']
+
+
+regex_dic = {'(YYG)': "(^|\s)(My|my|I|I am|I'm)\s\([0-9][0-9][MmfF]\)(.|,|\s|$)",
+             '(GYY)': "(^|\s)(My|my|I|I am|I'm)\s\([MmfF][0-9][0-9]\)(.|,|\s|$)",
+             'YYG': "(^|\s)(My|my|I|I am|I'm)(,|, )[0-9][0-9][MmfF](.|,|\s|$)",
+             'GYY': "(^|\s)(My|my|I|I am|I'm)(,|, )[MmfF][0-9][0-9](.|,|\s|$)"
+            }
+
+posts_dic = {'(YYG)': None, '(GYY)': None, 'YYG':None, 'GYY': None}
+
+attribute_dic = {'(YYG)': {'g': -1, 'y1': -3, 'y2':-1},
+                 '(GYY)': {'g': -3, 'y1': -2, 'y2':None},
+                 'YYG': {'g': -1, 'y1':-3, 'y2': -1},
+                 'GYY': {'g': -3, 'y1':-2, 'y2': None}
+                }
+
+def query_mongoDB(regex_dic, posts_dic):
     '''
     A function to query a mongoDB collection selecting only those documents which text attribute contains the text of interest
     patterns: a list with the names of the different patterns (this names are the same of the dictionaries keys)
@@ -18,15 +37,22 @@ def query_mongoDB(patterns, regex_dic, posts_dic):
     posts_dic: dictionary that will contain the objects queried (keys are the patterns)
     database_month: label to indicate the mongoBB collection (when saving)
     text_attribute: mongoDB attribute to query'''
-    for p in tqdm(patterns, total = len(patterns)):
+    t0_query = time.time()
+    
+    all_patterns = "(My|my|I|I am|I'm)(,|, |\s)\(?([0-9][0-9][MmfF]|[MmfF][0-9][0-9])\)?"
 
-        query = [
-            {'$match': {'body': {'$regex': regex_dic[p]}}},
-        ]        
-        
-        results = list(db.july2021_all.aggregate(query))
-        
-        posts_dic[p] = results
+    pipeline = [
+        {'$match': {'body': {'$regex': all_patterns}}},
+    ]
+
+    results = list(db.july2021_all.aggregate(pipeline))
+
+    elapsed = str(datetime.timedelta(seconds=time.time()-t0_query))
+    print('Querying mongoDB took: ', elapsed)
+
+    for type, pattern in regex_dic.items():
+        regex = re.compile(pattern)
+        posts_dic[type] = list(filter(lambda x: regex.match(x['body']), results))
             
     return posts_dic
 
@@ -111,29 +137,8 @@ def export_authors(authors_dic):
 
         
         
-database_month = '07-2021'
-db_year = 2021
-path_intermediate = 'age_gender/'
-bots_names = ['[deleted]', 'AutoModerator', 'R_Amods', 'Judgement_Bot_AITA', 'transcribot']
-
-patterns = ['(YYG)', '(GYY)', 'YYG', 'GYY']
-
-
-regex_dic = {'(YYG)': "(^|\s)(My|my|I|I am|I'm)\s\([0-9][0-9][MmfF]\)(.|,|\s|$)",
-             '(GYY)': "(^|\s)(My|my|I|I am|I'm)\s\([MmfF][0-9][0-9]\)(.|,|\s|$)",
-             'YYG': "(^|\s)(My|my|I|I am|I'm)(,|, )[0-9][0-9][MmfF](.|,|\s|$)",
-             'GYY': "(^|\s)(My|my|I|I am|I'm)(,|, )[MmfF][0-9][0-9](.|,|\s|$)"
-            }
-
-posts_dic = {'(YYG)': None, '(GYY)': None, 'YYG':None, 'GYY': None}
-
-attribute_dic = {'(YYG)': {'g': -1, 'y1': -3, 'y2':-1},
-                 '(GYY)': {'g': -3, 'y1': -2, 'y2':None},
-                 'YYG': {'g': -1, 'y1':-3, 'y2': -1},
-                 'GYY': {'g': -3, 'y1':-2, 'y2': None}
-                }
-
-posts_dic = query_mongoDB(patterns, regex_dic, posts_dic)
+t0 = time.time()
+posts_dic = query_mongoDB(regex_dic, posts_dic)
 
 posts_dic = remove_bots(patterns, posts_dic, bots_names)
 
@@ -142,3 +147,6 @@ posts = assign_GenderAge(patterns, posts_dic, regex_dic, attribute_dic, db_year)
 authors_dic = group_by_author(posts, database_month)
 
 export_authors(authors_dic)
+
+elapsed = str(datetime.timedelta(seconds=time.time()-t0))
+print('Total time: ', elapsed)

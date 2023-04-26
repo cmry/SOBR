@@ -4,11 +4,9 @@ import datetime
 from tqdm import tqdm
 import time
 
-# Connect to the MongoDB, change the connection string pmongodb accumulate from several documenter your MongoDB environment
-#client = MongoClient("localhost", 27010)             
+         
 client = MongoClient('mongodb://sergey:topsecretpasswordforsergeysmongo@localhost:27010/research?authSource=research')             
 db = client.research
-#db.authenticate("sergey", "topsecretpasswordforsergeysmongo")
 
 db_month_name = 'july2021_all'
 
@@ -109,8 +107,5 @@ db.final_db.insert_many(entries)
 
 elapsed = str(datetime.timedelta(seconds=int(round(time.time() - t0))))
 
-# write elapsed time to file
-with open('elapsed_time.txt', 'w') as f:
-    f.write(elapsed)
-    
+print('Query took: ' + elapsed)
 
