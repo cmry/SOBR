@@ -1,3 +1,15 @@
+from airflow import DAG
+import os
+import sys
+from airflow.operators.python import PythonOperator
+import datetime
+import subprocess
+import getpass
+
+subprocess.call([sys.executable, "-m", "pip", "install", "pymongo"])
+sys.path.insert(0, os.path.abspath(os.path.join(
+    os.path.dirname(__file__), '.', 'scripts')))
+
 from labelled_authors_to_final_db import labelled_authors_to_final_db
 from update_labelled_authors import update_labelled_authors
 from merge_authors import merge_authors
@@ -7,17 +19,6 @@ from nationality_query import nationality_query
 from age_gender_query import age_gender_query
 from create_main_collection_indices import create_main_collection_indices
 from get_remove_database_month import get_remove_database_month
-from airflow import DAG
-import os
-import sys
-from airflow.operators.python import PythonOperator
-import datetime
-import subprocess
-
-subprocess.call([sys.executable, "-m", "pip", "install", "pymongo"])
-sys.path.insert(0, os.path.abspath(os.path.join(
-    os.path.dirname(__file__), '.', 'scripts')))
-
 
 default_args = {
     'owner': 'chrisemmery',
@@ -39,10 +40,8 @@ dag = DAG(
 
 def run_get_remove_database_month(ds=None, **kwargs):
     get_remove_database_month(get_database_month=kwargs['dag_run'].conf.get('get_database_month'),
-                              remove_database_month=kwargs['dag_run'].conf.get(
-                                  'remove_database_month'),
-                              no_submissions=kwargs['dag_run'].conf.get(
-                                  'no_submissions', False),
+                              remove_database_month=kwargs['dag_run'].conf.get('remove_database_month'),
+                              no_submissions=kwargs['dag_run'].conf.get('no_submissions', False),
                               no_comments=kwargs['dag_run'].conf.get('no_comments', False))
 
 
@@ -79,6 +78,12 @@ get_remove_database_month_task = PythonOperator(
     python_callable=run_get_remove_database_month,
     dag=dag,
 )
+
+# create_main_collection_indices_task = PythonOperator(
+#     task_id=run_create_main_collection_indices.__name__,
+#     python_callable=run_create_main_collection_indices,
+#     dag=dag,
+# )
 
 query_age_gender_task = PythonOperator(
     task_id=run_age_gender_query.__name__,
@@ -122,6 +127,7 @@ labelled_authors_to_final_db_task = PythonOperator(
     dag=dag,
 )
 
-get_remove_database_month_task >> run_create_main_collection_indices[query_age_gender_task, query_nationality_task, query_personality_task, query_political_leaning_task] >> \
+get_remove_database_month_task >>\
+    [query_age_gender_task, query_nationality_task, query_personality_task, query_political_leaning_task] >>\
     merge_authors_task >>\
     update_labelled_authors_task >> labelled_authors_to_final_db_task
