@@ -5,3 +5,5 @@ __pycache__
 .python-version
 
 archive
+
+sergey_mongo_connect.sh

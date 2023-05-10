@@ -1,5 +1,6 @@
 from pymongo import MongoClient
 from tqdm import tqdm
+import logging
 
 
 def update_labelled_authors():
@@ -75,6 +76,8 @@ def update_labelled_authors():
     # Empty the intermediate collection
     db.labelled_authors_intermediate.drop()
 
-    return len(insertion_result.inserted_ids) if insertion_result else 0 # Return the number of new authors inserted
+    number_of_new_authors = len(insertion_result.inserted_ids) if insertion_result else 0 # Return the number of new authors inserted
+
+    logging.info(f"Updated {len(authors_to_update)} authors and inserted {number_of_new_authors} new authors")
  
         
