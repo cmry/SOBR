@@ -7,7 +7,10 @@ def create_main_collection_indices(database_month: str, **kwargs) -> None:
     collection = client.research[database_month]
 
     collection.create_index('author_fullname')
-    collection.create_index('subreddit_name_prefixed')
-    collection.create_index('author_flair_text')
+    logging.info('Created index for author_fullname')
 
-    logging.info(f'Created indices for {database_month}')
+    collection.create_index('subreddit_name_prefixed')
+    logging.info('Created index for subreddit_name_prefixed')
+
+    collection.create_index('author_flair_text')
+    logging.info('Created index for author_flair_text')

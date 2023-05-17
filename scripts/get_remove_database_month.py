@@ -2,7 +2,6 @@ import logging
 from pymongo import MongoClient
 import os
 import subprocess
-from json import loads
 from typing import Union
 
 
@@ -97,4 +96,4 @@ def get_remove_database_month(get_database_month: Union[str, None], remove_datab
 
 
 if __name__ == "__main__":
-    get_remove_database_month(remove_database_month=None, get_database_month='2022-12', no_submissions=True)
+    get_remove_database_month(remove_database_month=None, get_database_month='2022-11', no_submissions=True)

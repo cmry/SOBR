@@ -2,6 +2,7 @@ from pymongo import MongoClient
 import datetime
 from tqdm import tqdm
 import logging
+from typing import Union
 
 
 def labelled_authors_to_final_db(database_month: str):
@@ -28,13 +29,23 @@ def labelled_authors_to_final_db(database_month: str):
     entries = []
 
     for document in tqdm(curser):
-        entry = {}
-        entry['post_id'] = document['post']['id']
+        entry: dict[str, Union[str, int, None]] = {}
+        post: Union[dict[str, Union[str, int, None]], None] = document.get('post', None)
+
+        if not post: continue # skip authors without posts in the month
+
+        entry['post_id'] = post.get('id', None)
         entry['author_id'] = document['author_id']
-        entry['subreddit'] = document['post']['subreddit_name_prefixed']
-        entry['created_on'] = datetime.datetime.fromtimestamp(
-            document['post']['created_utc']).strftime('%Y-%m-%d %H:%M:%S')
-        entry['post_body'] = document['post'].get('body')
+        entry['subreddit'] = post.get('subreddit_name_prefixed', None)
+
+        create_date_epoch = post.get('created_utc', None)
+        if create_date_epoch:
+            entry['created_on'] = datetime.datetime.fromtimestamp(
+                create_date_epoch).strftime('%Y-%m-%d %H:%M:%S') # type: ignore
+
+        body = post.get('body', None)
+        if post is None: continue # skip deleted posts
+        entry['post'] = body
 
         labels = document['labels']
 
@@ -124,3 +135,6 @@ def labelled_authors_to_final_db(database_month: str):
     db.final_db.insert_many(entries)
 
     logging.info(f"Inserted {number_of_entries} entries into final_db")
+
+if __name__ == '__main__':
+    labelled_authors_to_final_db('2022-11')

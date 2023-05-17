@@ -2,9 +2,10 @@ from airflow import DAG
 import os
 import sys
 from airflow.operators.python import PythonOperator
+from airflow.operators.bash import BashOperator
 import datetime
 import subprocess
-import getpass
+
 
 subprocess.call([sys.executable, "-m", "pip", "install", "pymongo"])
 sys.path.insert(0, os.path.abspath(os.path.join(
@@ -79,11 +80,11 @@ get_remove_database_month_task = PythonOperator(
     dag=dag,
 )
 
-# create_main_collection_indices_task = PythonOperator(
-#     task_id=run_create_main_collection_indices.__name__,
-#     python_callable=run_create_main_collection_indices,
-#     dag=dag,
-# )
+create_main_collection_indices_task = PythonOperator(
+    task_id=run_create_main_collection_indices.__name__,
+    python_callable=run_create_main_collection_indices,
+    dag=dag,
+)
 
 query_age_gender_task = PythonOperator(
     task_id=run_age_gender_query.__name__,
@@ -127,7 +128,17 @@ labelled_authors_to_final_db_task = PythonOperator(
     dag=dag,
 )
 
+backup_database_task = BashOperator(
+    task_id='backup_database',
+    bash_command="""
+    mongodump --uri='mongodb://sergey:topsecretpasswordforsergeysmongo@localhost:27010/research' --collection=final_db --gzip --archive=/data/GRASP/backups/final_db/final_db_{{ dag_run.conf.query_month }}.gz
+    mongodump --uri='mongodb://sergey:topsecretpasswordforsergeysmongo@localhost:27010/research' --collection=labelled_authors --gzip --archive=/data/GRASP/backups/labelled_authors/labelled_authors_{{ dag_run.conf.query_month }}.gz
+    """,
+    dag=dag
+)
+
 get_remove_database_month_task >>\
+    create_main_collection_indices_task >>\
     [query_age_gender_task, query_nationality_task, query_personality_task, query_political_leaning_task] >>\
     merge_authors_task >>\
-    update_labelled_authors_task >> labelled_authors_to_final_db_task
+    update_labelled_authors_task >> labelled_authors_to_final_db_task >> backup_database_task
